@@ -487,6 +487,12 @@ open class SplitViewController: UIViewController {
 		firstContainerView.backgroundColor = color
 		secondContainerView.backgroundColor = color
 	}
+
+	public func setSeparatorBackgroundColor(_ color: UIColor)
+	{
+		horizontalHandle.backgroundColor = color
+		verticalHandle.backgroundColor = color
+	}
     
     @IBAction private func verticalPanGestureDidPan(_ sender: UIPanGestureRecognizer) {
         switch sender.state {
