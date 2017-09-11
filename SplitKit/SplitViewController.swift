@@ -481,6 +481,12 @@ open class SplitViewController: UIViewController {
         self.firstViewWidthRatioConstraint = NSLayoutConstraint(item: self.firstContainerView, attribute: .width, relatedBy: .equal, toItem: self.view, attribute: .width, multiplier: ratio, constant: 0)
         self.view.addConstraint(self.firstViewWidthRatioConstraint!)
     }
+
+	public func setBackgroundColor(_ color: UIColor)
+	{
+		firstContainerView.backgroundColor = color
+		secondContainerView.backgroundColor = color
+	}
     
     @IBAction private func verticalPanGestureDidPan(_ sender: UIPanGestureRecognizer) {
         switch sender.state {
