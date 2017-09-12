@@ -52,9 +52,10 @@ internal class HandleView: UIView {
             }
         }
     }
-    
-    let cornerRadius : CGFloat = 8.0
-    let backgroundGray = UIColor(red: 248/255, green: 248/255, blue: 248/255, alpha: 1)
+	
+    static let backgroundGray = UIColor(red: 248/255, green: 248/255, blue: 248/255, alpha: 1)
+	
+	let cornerRadius : CGFloat = 8.0
     let barHeight : CGFloat = 10.0
     let barWidth : CGFloat = 2.0
     var bars : CALayer?
@@ -97,7 +98,7 @@ internal class HandleView: UIView {
         bounds.size = handleSize
         layer.cornerRadius = cornerRadius
         layer.masksToBounds = true
-        backgroundColor = backgroundGray
+        backgroundColor = HandleView.backgroundGray
         alpha = 0.0
         bars = barsLayer
         guard let bars = bars else { return }

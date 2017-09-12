@@ -32,6 +32,22 @@ open class SplitViewController: UIViewController {
             verticalHandle.barColor = separatorSelectedColor
         }
     }
+	
+	/// Specify the background color of the container views
+	@objc public var backgroundColor : UIColor = UIColor.white {
+		didSet {
+			firstContainerView.backgroundColor = backgroundColor
+			secondContainerView.backgroundColor = backgroundColor
+		}
+	}
+	
+	/// Specify the background color of the separator
+	@objc public var separatorBackgroundColor : UIColor = HandleView.backgroundGray {
+		didSet {
+			horizontalHandle.backgroundColor = separatorBackgroundColor
+			verticalHandle.backgroundColor = separatorBackgroundColor
+		}
+	}
     
     fileprivate var shouldAnimateSplitChange = false
     
@@ -63,8 +79,8 @@ open class SplitViewController: UIViewController {
                     
                 })
                 break
+				
             case .vertical:
-                
                 firstViewBottomConstraint.isActive = false
                 firstViewWidthConstraint.isActive = false
                 firstViewWidthRatioConstraint?.isActive = false
@@ -96,14 +112,7 @@ open class SplitViewController: UIViewController {
     ///
     /// - Parameter sender: the button that triggered the orientation change
     @IBAction func switchArrangement(_ sender: Any? = nil) {
-        switch arrangement {
-        case .horizontal:
-            arrangement = .vertical
-            break
-        case .vertical:
-            arrangement = .horizontal
-            break
-        }
+        arrangement.flip()
     }
     
     /// Set the top or leading controller
@@ -402,7 +411,8 @@ open class SplitViewController: UIViewController {
                     
             })
             horizontalHandle.snapped = .none
-        case .changed:
+			
+		case .changed:
             let translation = sender.translation(in: view)
             let finalX = panInitialX + translation.x
             var maximumAllowedWidth : CGFloat = 0.0
@@ -419,32 +429,31 @@ open class SplitViewController: UIViewController {
                 firstViewWidthConstraint.constant = 0
             }
             break
-        case .ended:
+			
+		case .ended:
             var snapped = false
             // If we are near a border, just snap to it
             if #available(iOS 11.0, *) {
                 if firstViewWidthConstraint.constant >= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * 0.95 {
-                    firstViewWidthConstraint.constant = view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right
                     snapped = true
-                    horizontalHandle.snapped = .trail
+					snapToTrailing()
                 } else if firstViewWidthConstraint.constant <= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * 0.05 {
-                    firstViewWidthConstraint.constant = 0
                     snapped = true
-                    horizontalHandle.snapped = .lead
+					snapToLeading()
                 }
             } else {
                 if firstViewWidthConstraint.constant >= view.bounds.width * 0.95 {
-                    firstViewWidthConstraint.constant = view.bounds.width
-                    snapped = true
-                    horizontalHandle.snapped = .trail
+					snapToTrailing()
+					snapped = true
                 } else if firstViewWidthConstraint.constant <= view.bounds.width * 0.05 {
-                    firstViewWidthConstraint.constant = 0
+                    snapToLeading()
                     snapped = true
-                    horizontalHandle.snapped = .lead
                 }
             }
+			
             horizontalSeparatorWidthConstraint.constant = 1.0 / UIScreen.main.scale
-            UIView.animate(withDuration: draggingAnimationDuration, delay: 0, options: .curveEaseOut, animations: { [unowned self] in
+			
+			UIView.animate(withDuration: draggingAnimationDuration, delay: 0, options: .curveEaseOut, animations: { [unowned self] in
                 if snapped == false {
                     self.horizontalHandle.alpha = 0.0
                 } else {
@@ -455,7 +464,8 @@ open class SplitViewController: UIViewController {
             }, completion: { (completed) in
                 self.restoreHorizontalRatioConstraint()
             })
-            if draggingAnimationDuration == 0.0 {
+			
+			if draggingAnimationDuration == 0.0 {
                 restoreHorizontalRatioConstraint()
             }
             
@@ -481,18 +491,6 @@ open class SplitViewController: UIViewController {
         self.firstViewWidthRatioConstraint = NSLayoutConstraint(item: self.firstContainerView, attribute: .width, relatedBy: .equal, toItem: self.view, attribute: .width, multiplier: ratio, constant: 0)
         self.view.addConstraint(self.firstViewWidthRatioConstraint!)
     }
-
-	public func setBackgroundColor(_ color: UIColor)
-	{
-		firstContainerView.backgroundColor = color
-		secondContainerView.backgroundColor = color
-	}
-
-	public func setSeparatorBackgroundColor(_ color: UIColor)
-	{
-		horizontalHandle.backgroundColor = color
-		verticalHandle.backgroundColor = color
-	}
     
     @IBAction private func verticalPanGestureDidPan(_ sender: UIPanGestureRecognizer) {
         switch sender.state {
@@ -547,23 +545,19 @@ open class SplitViewController: UIViewController {
             // If we are near a border, just snap to it
             if #available(iOS 11.0, *) {
                 if firstViewHeightConstraint.constant >= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * 0.95 {
-                    firstViewHeightConstraint.constant = view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom
-                    snapped = true
-                    verticalHandle.snapped = .bottom
+					snapped = true
+                    snapToBottom()
                 } else if firstViewHeightConstraint.constant <= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * 0.05 {
-                    firstViewHeightConstraint.constant = 0
-                    snapped = true
-                    verticalHandle.snapped = .top
+					snapped = true
+                    snapToTop()
                 }
             } else {
                 if firstViewHeightConstraint.constant >= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * 0.95 {
-                    firstViewHeightConstraint.constant = view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length
                     snapped = true
-                    verticalHandle.snapped = .bottom
+                    snapToBottom()
                 } else if firstViewHeightConstraint.constant <= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * 0.05 {
-                    firstViewHeightConstraint.constant = 0
-                    snapped = true
-                    verticalHandle.snapped = .top
+					snapped = true
+					snapToTop()
                 }
             }
             verticalSeparatorHeightConstraint.constant = 1.0 / UIScreen.main.scale
@@ -586,14 +580,46 @@ open class SplitViewController: UIViewController {
             break
         }
     }
+	
+	private func snapToLeading()
+	{
+		firstViewWidthConstraint.constant = 0
+		horizontalHandle.snapped = .lead
+	}
+	
+	private func snapToTrailing()
+	{
+		if #available(iOS 11.0, *) {
+			firstViewWidthConstraint.constant = view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right
+		} else {
+			firstViewWidthConstraint.constant = view.bounds.width
+		}
+		horizontalHandle.snapped = .trail
+	}
+	
+	private func snapToTop()
+	{
+		firstViewHeightConstraint.constant = 0
+		verticalHandle.snapped = .top
+	}
+	
+	private func snapToBottom()
+	{
+		if #available(iOS 11.0, *) {
+			firstViewHeightConstraint.constant = view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom
+		} else {
+			firstViewHeightConstraint.constant = view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length
+		}
+		verticalHandle.snapped = .bottom
+	}
     
     func restoreVerticalRatioConstraint() {
         self.firstViewHeightConstraint.priority = .defaultLow
         var ratio : CGFloat = 1.0
         if #available(iOS 11.0, *) {
-            ratio = self.firstContainerView.bounds.size.height / (self.view.bounds.size.height - self.view.safeAreaInsets.top - self.view.safeAreaInsets.bottom)
+            ratio = firstViewHeightConstraint.constant / (self.view.bounds.size.height - self.view.safeAreaInsets.top - self.view.safeAreaInsets.bottom)
         } else {
-            ratio = self.firstContainerView.bounds.size.height / (self.view.bounds.height - self.topLayoutGuide.length - self.bottomLayoutGuide.length)
+            ratio = firstViewHeightConstraint.constant / (self.view.bounds.height - self.topLayoutGuide.length - self.bottomLayoutGuide.length)
         }
         if ratio < 0 {
             ratio = 0.0
@@ -646,4 +672,49 @@ open class SplitViewController: UIViewController {
 
         }
     }
+}
+
+public extension SplitViewController // Accessory Methods
+{
+	func collapseFirstController()
+	{
+		setupCollapse {
+			snapToLeading()
+			snapToTop()
+		}
+	}
+	
+	func collapseSecondController()
+	{
+		setupCollapse {
+			snapToTrailing()
+			snapToBottom()
+		}
+	}
+	
+	private func setupCollapse(performCollapse: () -> Void)
+	{
+		// The state of the constraint is stored even if the arrangement is not active.
+		// Therefore we update both, so that when the user changes the arrangement, the collapsing remains.
+		
+		firstViewWidthRatioConstraint?.isActive = false
+		firstViewHeightRatioConstraint?.isActive = false
+		
+		performCollapse()
+		
+		verticalSeparatorHeightConstraint.constant = 1.0 / UIScreen.main.scale
+		verticalSeparatorHair.alpha = 0.0
+		verticalSeparatorHair.backgroundColor = self.separatorColor
+		verticalHandle.alpha = 1.0
+		
+		horizontalSeparatorWidthConstraint.constant = 1.0 / UIScreen.main.scale
+		horizontalSeparatorHair.alpha = 0.0
+		horizontalSeparatorHair.backgroundColor = self.separatorColor
+		horizontalHandle.alpha = 1.0
+		
+		view.layoutIfNeeded()
+		
+		restoreHorizontalRatioConstraint()
+		restoreVerticalRatioConstraint()
+	}
 }

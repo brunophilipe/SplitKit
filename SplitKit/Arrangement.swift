@@ -17,4 +17,12 @@ import Foundation
 public enum Arrangement: Int {
     case horizontal = 0
     case vertical = 1
+	
+	mutating func flip()
+	{
+		switch self {
+		case .horizontal: self = .vertical
+		case .vertical: self = .horizontal
+		}
+	}
 }
