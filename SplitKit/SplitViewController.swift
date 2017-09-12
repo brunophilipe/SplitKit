@@ -676,6 +676,7 @@ open class SplitViewController: UIViewController {
 
 public extension SplitViewController // Accessory Methods
 {
+	/// Collapses (hides) the first view controller (top/left).
 	func collapseFirstController()
 	{
 		setupCollapse {
@@ -684,6 +685,7 @@ public extension SplitViewController // Accessory Methods
 		}
 	}
 	
+	/// Collapses (hides) the second view controller (bottom/right).
 	func collapseSecondController()
 	{
 		setupCollapse {
