@@ -59,6 +59,13 @@ open class SplitViewController: UIViewController {
 	
 	/// Distance from the trailing/bottom side down from which a collapse will happen if the user stops dragging.
 	public var secondCollapseThreshold: CGFloat = 0.95
+
+	/// The dragging handle will snap lightly at these points. Can be used to help the user size views to useful fractions.
+	/// The default value is an array with a single value of 0.5, meaning the drag handle will snap in the middle.
+	public var snapPoints: [CGFloat] = [0.5]
+
+	/// How close to a snap point does the user need to drag the handle to trigger a drag snap.
+	public var snapRange: CGFloat = 15.0
     
     /// Change the controllers arrangement:
     /// - side by side with `.horizontal`
@@ -165,8 +172,8 @@ open class SplitViewController: UIViewController {
     private let horizontalSeparatorView = UIView()
     private let verticalSeparatorView = UIView()
     
-    private let firstContainerView = UIView()
-    private let secondContainerView = UIView()
+    private let firstContainerView = UIScrollView()
+    private let secondContainerView = UIScrollView()
     
     private var firstViewTopConstraint : NSLayoutConstraint!
     private var firstViewBottomConstraint : NSLayoutConstraint!
@@ -388,16 +395,36 @@ open class SplitViewController: UIViewController {
         shouldAnimateSplitChange = true
     }
 
+	private var currentDragFraction: CGFloat {
+		switch arrangement {
+		case .horizontal:
+			if #available(iOS 11.0, *) {
+				return firstViewWidthConstraint.constant / (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right)
+			} else {
+				return firstViewWidthConstraint.constant / view.bounds.width
+			}
+		case .vertical:
+			if #available(iOS 11.0, *) {
+				return firstViewHeightConstraint.constant / (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom)
+			} else {
+				return firstViewHeightConstraint.constant / view.bounds.height
+			}
+		}
+	}
+
     private var panInitialX : CGFloat = 0.0
     private var panInitialY : CGFloat = 0.0
+	private var isSnappedToSnapPoint = false
     
     @IBAction private func horizontalPanGestureDidPan(_ sender: UIPanGestureRecognizer) {
+		let currentDragFraction = self.currentDragFraction
+
         switch sender.state {
         case .began:
             guard let senderView = sender.view else { break }
             var ratio : CGFloat = 0.5
             var width : CGFloat = 1.0
-			
+
 			delegate?.splitViewDidBeginDragging(self)
 			
             firstViewWidthRatioConstraint?.isActive = false
@@ -426,13 +453,26 @@ open class SplitViewController: UIViewController {
 			
 		case .changed:
             let translation = sender.translation(in: view)
-            let finalX = panInitialX + translation.x
-            var maximumAllowedWidth : CGFloat = 0.0
-            if #available(iOS 11.0, *) {
-                maximumAllowedWidth = view.frame.size.width - view.safeAreaInsets.left - view.safeAreaInsets.right
-            } else {
-                maximumAllowedWidth = view.frame.size.width
-            }
+            var finalX = panInitialX + translation.x
+            let maximumAllowedWidth: CGFloat
+			var didSnap = false
+
+			if #available(iOS 11.0, *) {
+				maximumAllowedWidth = view.frame.size.width - view.safeAreaInsets.left - view.safeAreaInsets.right
+			} else {
+				maximumAllowedWidth = view.frame.size.width
+			}
+
+			snapPoints.forEach {
+				snapPoint in
+
+				let snapPosition = snapPoint * maximumAllowedWidth
+				if finalX > (snapPosition - snapRange) && finalX < (snapPosition + snapRange) {
+					finalX = snapPosition
+					didSnap = true
+				}
+			}
+
             if finalX >= maximumAllowedWidth {
                 firstViewWidthConstraint.constant = maximumAllowedWidth
             } else if finalX > 0 {
@@ -440,49 +480,39 @@ open class SplitViewController: UIViewController {
             } else {
                 firstViewWidthConstraint.constant = 0
             }
+
+			if didSnap != isSnappedToSnapPoint {
+				let animationCurve: UIViewAnimationOptions = didSnap ? .curveEaseOut : .curveEaseIn
+
+				UIView.animate(withDuration: draggingAnimationDuration, delay: 0, options: animationCurve, animations: { [unowned self] in
+					self.view.layoutIfNeeded()
+				}, completion: nil)
+			}
 			
 			// Inform delegate
 			if let delegate = self.delegate
 			{
-				if #available(iOS 11.0, *) {
-					if firstViewWidthConstraint.constant >= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * secondCollapseThreshold {
-						delegate.splitView(self, willCollapseChildIfDragEnds: .second)
-					} else if firstViewWidthConstraint.constant <= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * firstCollapseThreshold {
-						delegate.splitView(self, willCollapseChildIfDragEnds: .first)
-					} else {
-						delegate.splitView(self, willCollapseChildIfDragEnds: nil)
-					}
+				if currentDragFraction >= secondCollapseThreshold {
+					delegate.splitView(self, willCollapseChildIfDragEnds: .second)
+				} else if currentDragFraction <= firstCollapseThreshold {
+					delegate.splitView(self, willCollapseChildIfDragEnds: .first)
 				} else {
-					if firstViewWidthConstraint.constant >= view.bounds.width * secondCollapseThreshold {
-						delegate.splitView(self, willCollapseChildIfDragEnds: .second)
-					} else if firstViewWidthConstraint.constant <= view.bounds.width * firstCollapseThreshold {
-						delegate.splitView(self, willCollapseChildIfDragEnds: .first)
-					} else {
-						delegate.splitView(self, willCollapseChildIfDragEnds: nil)
-					}
+					delegate.splitView(self, willCollapseChildIfDragEnds: nil)
 				}
 			}
+
+			isSnappedToSnapPoint = didSnap
 			
 		case .ended:
             var snapped = false
             // If we are near a border, just snap to it
-            if #available(iOS 11.0, *) {
-                if firstViewWidthConstraint.constant >= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * secondCollapseThreshold {
-                    snapped = true
-					snapToTrailing()
-                } else if firstViewWidthConstraint.constant <= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * firstCollapseThreshold {
-                    snapped = true
-					snapToLeading()
-                }
-            } else {
-                if firstViewWidthConstraint.constant >= view.bounds.width * secondCollapseThreshold {
-					snapToTrailing()
-					snapped = true
-                } else if firstViewWidthConstraint.constant <= view.bounds.width * firstCollapseThreshold {
-                    snapToLeading()
-                    snapped = true
-                }
-            }
+			if currentDragFraction >= secondCollapseThreshold {
+				snapped = true
+				snapToTrailing()
+			} else if currentDragFraction <= firstCollapseThreshold {
+				snapped = true
+				snapToLeading()
+			}
 			
             horizontalSeparatorWidthConstraint.constant = 1.0 / UIScreen.main.scale
 			
@@ -527,6 +557,8 @@ open class SplitViewController: UIViewController {
     }
     
     @IBAction private func verticalPanGestureDidPan(_ sender: UIPanGestureRecognizer) {
+		let currentDragFraction = self.currentDragFraction
+
         switch sender.state {
         case .began:
             guard let senderView = sender.view else { break }
@@ -562,13 +594,26 @@ open class SplitViewController: UIViewController {
 			
         case .changed:
             let translation = sender.translation(in: view)
-            let finalY = panInitialY + translation.y
-            var maximumAllowedHeight : CGFloat = 0.0
+            var finalY = panInitialY + translation.y
+            let maximumAllowedHeight: CGFloat
+			var didSnap = false
+
             if #available(iOS 11.0, *) {
                 maximumAllowedHeight = view.frame.size.height - view.safeAreaInsets.top - bottomKeyboardHeight
             } else {
                 maximumAllowedHeight = view.frame.size.height - topLayoutGuide.length - bottomKeyboardHeight
             }
+
+			snapPoints.forEach {
+				snapPoint in
+
+				let snapPosition = snapPoint * maximumAllowedHeight
+				if finalY > (snapPosition - snapRange) && finalY < (snapPosition + snapRange) {
+					finalY = snapPosition
+					didSnap = true
+				}
+			}
+
             if finalY >= maximumAllowedHeight {
                 firstViewHeightConstraint.constant = maximumAllowedHeight
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -578,48 +623,39 @@ open class SplitViewController: UIViewController {
                 firstViewHeightConstraint.constant = 0
             }
 
+			if didSnap != isSnappedToSnapPoint {
+				let animationCurve: UIViewAnimationOptions = didSnap ? .curveEaseOut : .curveEaseIn
+
+				UIView.animate(withDuration: draggingAnimationDuration, delay: 0, options: animationCurve, animations: { [unowned self] in
+					self.view.layoutIfNeeded()
+				}, completion: nil)
+			}
+
 			// Inform delegate
 			if let delegate = self.delegate
 			{
-				if #available(iOS 11.0, *) {
-					if firstViewHeightConstraint.constant >= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * secondCollapseThreshold {
-						delegate.splitView(self, willCollapseChildIfDragEnds: .second)
-					} else if firstViewHeightConstraint.constant <= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * firstCollapseThreshold {
-						delegate.splitView(self, willCollapseChildIfDragEnds: .first)
-					} else {
-						delegate.splitView(self, willCollapseChildIfDragEnds: nil)
-					}
+				if currentDragFraction >= secondCollapseThreshold {
+					delegate.splitView(self, willCollapseChildIfDragEnds: .second)
+				} else if currentDragFraction <= firstCollapseThreshold {
+					delegate.splitView(self, willCollapseChildIfDragEnds: .first)
 				} else {
-					if firstViewHeightConstraint.constant >= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * secondCollapseThreshold {
-						delegate.splitView(self, willCollapseChildIfDragEnds: .second)
-					} else if firstViewHeightConstraint.constant <= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * firstCollapseThreshold {
-						delegate.splitView(self, willCollapseChildIfDragEnds: .first)
-					} else {
-						delegate.splitView(self, willCollapseChildIfDragEnds: nil)
-					}
+					delegate.splitView(self, willCollapseChildIfDragEnds: nil)
 				}
 			}
+
+			isSnappedToSnapPoint = didSnap
 			
         case .ended:
             var snapped = false
             // If we are near a border, just snap to it
-            if #available(iOS 11.0, *) {
-                if firstViewHeightConstraint.constant >= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * secondCollapseThreshold {
-					snapped = true
-                    snapToBottom()
-                } else if firstViewHeightConstraint.constant <= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * firstCollapseThreshold {
-					snapped = true
-                    snapToTop()
-                }
-            } else {
-                if firstViewHeightConstraint.constant >= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * secondCollapseThreshold {
-                    snapped = true
-                    snapToBottom()
-                } else if firstViewHeightConstraint.constant <= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * firstCollapseThreshold {
-					snapped = true
-					snapToTop()
-                }
-            }
+			if currentDragFraction >= secondCollapseThreshold {
+				snapped = true
+				snapToBottom()
+			} else if currentDragFraction <= firstCollapseThreshold {
+				snapped = true
+				snapToTop()
+			}
+
             verticalSeparatorHeightConstraint.constant = 1.0 / UIScreen.main.scale
             UIView.animate(withDuration: invertAnimationDuration, delay: 0, options: .curveEaseOut, animations: { [unowned self] in
                 if snapped == false {
@@ -647,6 +683,8 @@ open class SplitViewController: UIViewController {
 	{
 		firstViewWidthConstraint.constant = 0
 		horizontalHandle.snapped = .lead
+
+		delegate?.splitView(self, didCollapseChild: .first)
 	}
 	
 	private func snapToTrailing()
@@ -657,12 +695,16 @@ open class SplitViewController: UIViewController {
 			firstViewWidthConstraint.constant = view.bounds.width
 		}
 		horizontalHandle.snapped = .trail
+
+		delegate?.splitView(self, didCollapseChild: .second)
 	}
 	
 	private func snapToTop()
 	{
 		firstViewHeightConstraint.constant = 0
 		verticalHandle.snapped = .top
+
+		delegate?.splitView(self, didCollapseChild: .first)
 	}
 	
 	private func snapToBottom()
@@ -673,6 +715,8 @@ open class SplitViewController: UIViewController {
 			firstViewHeightConstraint.constant = view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length
 		}
 		verticalHandle.snapped = .bottom
+
+		delegate?.splitView(self, didCollapseChild: .second)
 	}
     
     func restoreVerticalRatioConstraint() {
@@ -751,6 +795,9 @@ public protocol SplitViewControllerDelegate {
 	/// Sent to the delegate to inform that if the user stops dragging right now, whether a snapping will happen.
 	/// If `childPosition` is `nil`, it means no snapping will happen and the panels will only be resized.
 	func splitView(_: SplitViewController, willCollapseChildIfDragEnds childPosition: ChildPosition?)
+
+	/// Sent to the delegate once the drag ended with a child being collapsed.
+	func splitView(_: SplitViewController, didCollapseChild childPosition: ChildPosition)
 }
 
 public extension SplitViewController { // Accessory Methods 
