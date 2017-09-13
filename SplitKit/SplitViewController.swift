@@ -446,19 +446,19 @@ open class SplitViewController: UIViewController {
 			{
 				if #available(iOS 11.0, *) {
 					if firstViewWidthConstraint.constant >= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * secondCollapseThreshold {
-						delegate.splitView(self, willCollapseChildOnDragEnd: .second)
+						delegate.splitView(self, willCollapseChildIfDragEnds: .second)
 					} else if firstViewWidthConstraint.constant <= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * firstCollapseThreshold {
-						delegate.splitView(self, willCollapseChildOnDragEnd: .first)
+						delegate.splitView(self, willCollapseChildIfDragEnds: .first)
 					} else {
-						delegate.splitView(self, willCollapseChildOnDragEnd: nil)
+						delegate.splitView(self, willCollapseChildIfDragEnds: nil)
 					}
 				} else {
 					if firstViewWidthConstraint.constant >= view.bounds.width * secondCollapseThreshold {
-						delegate.splitView(self, willCollapseChildOnDragEnd: .second)
+						delegate.splitView(self, willCollapseChildIfDragEnds: .second)
 					} else if firstViewWidthConstraint.constant <= view.bounds.width * firstCollapseThreshold {
-						delegate.splitView(self, willCollapseChildOnDragEnd: .first)
+						delegate.splitView(self, willCollapseChildIfDragEnds: .first)
 					} else {
-						delegate.splitView(self, willCollapseChildOnDragEnd: nil)
+						delegate.splitView(self, willCollapseChildIfDragEnds: nil)
 					}
 				}
 			}
@@ -577,6 +577,28 @@ open class SplitViewController: UIViewController {
             } else {
                 firstViewHeightConstraint.constant = 0
             }
+
+			// Inform delegate
+			if let delegate = self.delegate
+			{
+				if #available(iOS 11.0, *) {
+					if firstViewHeightConstraint.constant >= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * secondCollapseThreshold {
+						delegate.splitView(self, willCollapseChildIfDragEnds: .second)
+					} else if firstViewHeightConstraint.constant <= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * firstCollapseThreshold {
+						delegate.splitView(self, willCollapseChildIfDragEnds: .first)
+					} else {
+						delegate.splitView(self, willCollapseChildIfDragEnds: nil)
+					}
+				} else {
+					if firstViewHeightConstraint.constant >= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * secondCollapseThreshold {
+						delegate.splitView(self, willCollapseChildIfDragEnds: .second)
+					} else if firstViewHeightConstraint.constant <= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * firstCollapseThreshold {
+						delegate.splitView(self, willCollapseChildIfDragEnds: .first)
+					} else {
+						delegate.splitView(self, willCollapseChildIfDragEnds: nil)
+					}
+				}
+			}
 			
         case .ended:
             var snapped = false
@@ -728,7 +750,7 @@ public protocol SplitViewControllerDelegate {
 	
 	/// Sent to the delegate to inform that if the user stops dragging right now, whether a snapping will happen.
 	/// If `childPosition` is `nil`, it means no snapping will happen and the panels will only be resized.
-	func splitView(_: SplitViewController, willCollapseChildOnDragEnd childPosition: ChildPosition?)
+	func splitView(_: SplitViewController, willCollapseChildIfDragEnds childPosition: ChildPosition?)
 }
 
 public extension SplitViewController { // Accessory Methods 
