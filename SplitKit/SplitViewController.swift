@@ -50,6 +50,8 @@ open class SplitViewController: UIViewController {
 	}
     
     fileprivate var shouldAnimateSplitChange = false
+	
+	public var delegate: SplitViewControllerDelegate? = nil
     
     /// Change the controllers arrangement:
     /// - side by side with `.horizontal`
@@ -388,6 +390,9 @@ open class SplitViewController: UIViewController {
             guard let senderView = sender.view else { break }
             var ratio : CGFloat = 0.5
             var width : CGFloat = 1.0
+			
+			delegate?.splitViewDidBeginDragging(self)
+			
             firstViewWidthRatioConstraint?.isActive = false
             if let multiplier = firstViewWidthRatioConstraint?.multiplier {
                 ratio = multiplier
@@ -428,7 +433,6 @@ open class SplitViewController: UIViewController {
             } else {
                 firstViewWidthConstraint.constant = 0
             }
-            break
 			
 		case .ended:
             var snapped = false
@@ -468,8 +472,9 @@ open class SplitViewController: UIViewController {
 			if draggingAnimationDuration == 0.0 {
                 restoreHorizontalRatioConstraint()
             }
-            
-            break
+			
+			delegate?.splitViewDidEndDragging(self)
+
         default:
             break
         }
@@ -498,6 +503,9 @@ open class SplitViewController: UIViewController {
             guard let senderView = sender.view else { break }
             var ratio : CGFloat = 0.5
             var height : CGFloat = 1.0
+			
+			delegate?.splitViewDidBeginDragging(self)
+			
             if let multiplier = firstViewHeightRatioConstraint?.multiplier {
                 ratio = multiplier
             }
@@ -522,6 +530,7 @@ open class SplitViewController: UIViewController {
                     
             })
             verticalHandle.snapped = .none
+			
         case .changed:
             let translation = sender.translation(in: view)
             let finalY = panInitialY + translation.y
@@ -539,7 +548,7 @@ open class SplitViewController: UIViewController {
             } else {
                 firstViewHeightConstraint.constant = 0
             }
-            break
+			
         case .ended:
             var snapped = false
             // If we are near a border, just snap to it
@@ -575,8 +584,10 @@ open class SplitViewController: UIViewController {
             if invertAnimationDuration == 0.0 {
                 restoreVerticalRatioConstraint()
             }
-            break
-        default:
+			
+			delegate?.splitViewDidEndDragging(self)
+			
+		default:
             break
         }
     }
@@ -674,11 +685,15 @@ open class SplitViewController: UIViewController {
     }
 }
 
+public protocol SplitViewControllerDelegate {
+	func splitViewDidBeginDragging(_: SplitViewController)
+	func splitViewDidEndDragging(_: SplitViewController)
+}
+
 public extension SplitViewController // Accessory Methods
 {
 	/// Collapses (hides) the first view controller (top/left).
-	func collapseFirstController()
-	{
+	func collapseFirstController() {
 		setupCollapse {
 			snapToLeading()
 			snapToTop()
@@ -686,16 +701,14 @@ public extension SplitViewController // Accessory Methods
 	}
 	
 	/// Collapses (hides) the second view controller (bottom/right).
-	func collapseSecondController()
-	{
+	func collapseSecondController() {
 		setupCollapse {
 			snapToTrailing()
 			snapToBottom()
 		}
 	}
 	
-	private func setupCollapse(performCollapse: () -> Void)
-	{
+	private func setupCollapse(performCollapse: () -> Void) {
 		// The state of the constraint is stored even if the arrangement is not active.
 		// Therefore we update both, so that when the user changes the arrangement, the collapsing remains.
 		
