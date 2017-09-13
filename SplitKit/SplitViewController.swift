@@ -51,7 +51,14 @@ open class SplitViewController: UIViewController {
     
     fileprivate var shouldAnimateSplitChange = false
 	
+	/// The delegate will be informed about drag events as they happen, allowing the UI to be customized if necessary.
 	public var delegate: SplitViewControllerDelegate? = nil
+	
+	/// Distance from the leading/top side up to which a collapse will happen if the user stops dragging.
+	public var firstCollapseThreshold: CGFloat = 0.05
+	
+	/// Distance from the trailing/bottom side down from which a collapse will happen if the user stops dragging.
+	public var secondCollapseThreshold: CGFloat = 0.95
     
     /// Change the controllers arrangement:
     /// - side by side with `.horizontal`
@@ -434,22 +441,44 @@ open class SplitViewController: UIViewController {
                 firstViewWidthConstraint.constant = 0
             }
 			
+			// Inform delegate
+			if let delegate = self.delegate
+			{
+				if #available(iOS 11.0, *) {
+					if firstViewWidthConstraint.constant >= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * secondCollapseThreshold {
+						delegate.splitView(self, willCollapseChildOnDragEnd: .second)
+					} else if firstViewWidthConstraint.constant <= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * firstCollapseThreshold {
+						delegate.splitView(self, willCollapseChildOnDragEnd: .first)
+					} else {
+						delegate.splitView(self, willCollapseChildOnDragEnd: nil)
+					}
+				} else {
+					if firstViewWidthConstraint.constant >= view.bounds.width * secondCollapseThreshold {
+						delegate.splitView(self, willCollapseChildOnDragEnd: .second)
+					} else if firstViewWidthConstraint.constant <= view.bounds.width * firstCollapseThreshold {
+						delegate.splitView(self, willCollapseChildOnDragEnd: .first)
+					} else {
+						delegate.splitView(self, willCollapseChildOnDragEnd: nil)
+					}
+				}
+			}
+			
 		case .ended:
             var snapped = false
             // If we are near a border, just snap to it
             if #available(iOS 11.0, *) {
-                if firstViewWidthConstraint.constant >= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * 0.95 {
+                if firstViewWidthConstraint.constant >= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * secondCollapseThreshold {
                     snapped = true
 					snapToTrailing()
-                } else if firstViewWidthConstraint.constant <= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * 0.05 {
+                } else if firstViewWidthConstraint.constant <= (view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right) * firstCollapseThreshold {
                     snapped = true
 					snapToLeading()
                 }
             } else {
-                if firstViewWidthConstraint.constant >= view.bounds.width * 0.95 {
+                if firstViewWidthConstraint.constant >= view.bounds.width * secondCollapseThreshold {
 					snapToTrailing()
 					snapped = true
-                } else if firstViewWidthConstraint.constant <= view.bounds.width * 0.05 {
+                } else if firstViewWidthConstraint.constant <= view.bounds.width * firstCollapseThreshold {
                     snapToLeading()
                     snapped = true
                 }
@@ -553,18 +582,18 @@ open class SplitViewController: UIViewController {
             var snapped = false
             // If we are near a border, just snap to it
             if #available(iOS 11.0, *) {
-                if firstViewHeightConstraint.constant >= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * 0.95 {
+                if firstViewHeightConstraint.constant >= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * secondCollapseThreshold {
 					snapped = true
                     snapToBottom()
-                } else if firstViewHeightConstraint.constant <= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * 0.05 {
+                } else if firstViewHeightConstraint.constant <= (view.bounds.height - view.safeAreaInsets.top - view.safeAreaInsets.bottom) * firstCollapseThreshold {
 					snapped = true
                     snapToTop()
                 }
             } else {
-                if firstViewHeightConstraint.constant >= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * 0.95 {
+                if firstViewHeightConstraint.constant >= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * secondCollapseThreshold {
                     snapped = true
                     snapToBottom()
-                } else if firstViewHeightConstraint.constant <= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * 0.05 {
+                } else if firstViewHeightConstraint.constant <= (view.bounds.height - topLayoutGuide.length - bottomLayoutGuide.length) * firstCollapseThreshold {
 					snapped = true
 					snapToTop()
                 }
@@ -685,13 +714,24 @@ open class SplitViewController: UIViewController {
     }
 }
 
-public protocol SplitViewControllerDelegate {
-	func splitViewDidBeginDragging(_: SplitViewController)
-	func splitViewDidEndDragging(_: SplitViewController)
+public enum ChildPosition {
+	case first
+	case second
 }
 
-public extension SplitViewController // Accessory Methods
-{
+public protocol SplitViewControllerDelegate {
+	/// Sent to the delegate as soon as user starts dragging the splitter.
+	func splitViewDidBeginDragging(_: SplitViewController)
+	
+	/// Sent to the delegate after user stops dragging the splitter and all layouting/snapping has finished.
+	func splitViewDidEndDragging(_: SplitViewController)
+	
+	/// Sent to the delegate to inform that if the user stops dragging right now, whether a snapping will happen.
+	/// If `childPosition` is `nil`, it means no snapping will happen and the panels will only be resized.
+	func splitView(_: SplitViewController, willCollapseChildOnDragEnd childPosition: ChildPosition?)
+}
+
+public extension SplitViewController { // Accessory Methods 
 	/// Collapses (hides) the first view controller (top/left).
 	func collapseFirstController() {
 		setupCollapse {
