@@ -807,6 +807,8 @@ public extension SplitViewController { // Accessory Methods
 			snapToLeading()
 			snapToTop()
 		}
+
+		delegate?.splitView(self, didCollapseChild: .first)
 	}
 	
 	/// Collapses (hides) the second view controller (bottom/right).
@@ -815,6 +817,8 @@ public extension SplitViewController { // Accessory Methods
 			snapToTrailing()
 			snapToBottom()
 		}
+
+		delegate?.splitView(self, didCollapseChild: .second)
 	}
 	
 	private func setupCollapse(performCollapse: () -> Void) {
