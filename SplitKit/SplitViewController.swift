@@ -807,8 +807,6 @@ public extension SplitViewController { // Accessory Methods
 			snapToLeading()
 			snapToTop()
 		}
-
-		delegate?.splitView(self, didCollapseChild: .first)
 	}
 	
 	/// Collapses (hides) the second view controller (bottom/right).
@@ -817,8 +815,26 @@ public extension SplitViewController { // Accessory Methods
 			snapToTrailing()
 			snapToBottom()
 		}
+	}
 
-		delegate?.splitView(self, didCollapseChild: .second)
+	var currentSplitRatio: CGFloat
+	{
+		if arrangement == .horizontal {
+			return firstViewWidthConstraint.constant / view.bounds.width
+		} else {
+			return firstViewHeightConstraint.constant / view.bounds.height
+		}
+	}
+
+	func resetSplitPosition() {
+		setupCollapse {
+			if arrangement == .horizontal {
+				firstViewWidthConstraint.constant = view.bounds.width / 2
+			} else {
+				firstViewHeightConstraint.constant = view.bounds.height / 2
+			}
+			horizontalHandle.snapped = .none
+		}
 	}
 	
 	private func setupCollapse(performCollapse: () -> Void) {
