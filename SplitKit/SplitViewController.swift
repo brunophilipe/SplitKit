@@ -820,9 +820,9 @@ public extension SplitViewController { // Accessory Methods
 	var currentSplitRatio: CGFloat
 	{
 		if arrangement == .horizontal {
-			return firstViewWidthConstraint.constant / view.bounds.width
+			return 1.0 - firstViewWidthRatioConstraint!.constant
 		} else {
-			return firstViewHeightConstraint.constant / view.bounds.height
+			return 1.0 - firstViewHeightRatioConstraint!.constant
 		}
 	}
 
@@ -849,16 +849,19 @@ public extension SplitViewController { // Accessory Methods
 		verticalSeparatorHeightConstraint.constant = 1.0 / UIScreen.main.scale
 		verticalSeparatorHair.alpha = 0.0
 		verticalSeparatorHair.backgroundColor = self.separatorColor
-		verticalHandle.alpha = 1.0
+		verticalHandle.alpha = verticalHandle.snapped == .none ? 0.0 : 1.0
 		
 		horizontalSeparatorWidthConstraint.constant = 1.0 / UIScreen.main.scale
 		horizontalSeparatorHair.alpha = 0.0
 		horizontalSeparatorHair.backgroundColor = self.separatorColor
-		horizontalHandle.alpha = 1.0
+		horizontalHandle.alpha = horizontalHandle.snapped == .none ? 0.0 : 1.0
 		
 		view.layoutIfNeeded()
 		
-		restoreHorizontalRatioConstraint()
-		restoreVerticalRatioConstraint()
+		if arrangement == .horizontal {
+			restoreHorizontalRatioConstraint()
+		} else {
+			restoreVerticalRatioConstraint()
+		}
 	}
 }
