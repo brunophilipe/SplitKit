@@ -847,14 +847,14 @@ public extension SplitViewController { // Accessory Methods
 		performCollapse()
 		
 		verticalSeparatorHeightConstraint.constant = 1.0 / UIScreen.main.scale
-		verticalSeparatorHair.alpha = 0.0
 		verticalSeparatorHair.backgroundColor = self.separatorColor
 		verticalHandle.alpha = verticalHandle.snapped == .none ? 0.0 : 1.0
+		verticalSeparatorHair.alpha = verticalHandle.snapped == .none ? 1.0 : 0.0
 		
 		horizontalSeparatorWidthConstraint.constant = 1.0 / UIScreen.main.scale
-		horizontalSeparatorHair.alpha = 0.0
 		horizontalSeparatorHair.backgroundColor = self.separatorColor
 		horizontalHandle.alpha = horizontalHandle.snapped == .none ? 0.0 : 1.0
+		horizontalSeparatorHair.alpha = horizontalHandle.snapped == .none ? 1.0 : 0.0
 		
 		view.layoutIfNeeded()
 		
